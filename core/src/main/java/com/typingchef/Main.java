@@ -3,32 +3,32 @@ package com.typingchef;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.utils.ScreenUtils;
 
-/** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
+import com.typingchef.views.screens.MainScreen;
+
 public class Main extends ApplicationAdapter {
-    private SpriteBatch batch;
-    private Texture image;
+
+    private MainScreen mainScreen;
 
     @Override
-    public void create() {
-        batch = new SpriteBatch();
-        image = new Texture("libgdx.png");
+    public void create()
+    {
+        mainScreen = new MainScreen();
     }
 
     @Override
-    public void render() {
-        ScreenUtils.clear(0.15f, 0.15f, 0.2f, 1f);
-        batch.begin();
-        batch.draw(image, 140, 210);
-        batch.end();
+    public void render()
+    {
+        Gdx.gl.glClearColor(0, 0, 0, 1);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        mainScreen.render();
     }
 
     @Override
-    public void dispose() {
-        batch.dispose();
-        image.dispose();
+    public void dispose()
+    {
+        mainScreen.dispose();
     }
+
 }
