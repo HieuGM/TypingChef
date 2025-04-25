@@ -57,10 +57,10 @@ public class WordGenerator {
 
         String randomWord = words.get(random.nextInt(words.size()));
 
-        float baseTime = 3.0f + randomWord.length() * 0.4f;
-        float timeLimit = Math.max(2.0f, baseTime - (level * 0.2f));
+//        float baseTime = 3.0f + randomWord.length() * 0.4f;
+//        float timeLimit = Math.max(2.0f, baseTime - (level * 0.2f));
 
-        return new Word(randomWord, actionType, timeLimit);
+        return new Word(randomWord, actionType);
     }
 
     public Word generateWordForCustomer(int customerId) {
@@ -71,10 +71,10 @@ public class WordGenerator {
 
         String randomWord = words.get(random.nextInt(words.size()));
 
-        float baseTime = 3.0f + randomWord.length() * 0.4f;
-        float timeLimit = Math.max(2.0f, baseTime - (level * 0.2f));
+//        float baseTime = 3.0f + randomWord.length() * 0.4f;
+//        float timeLimit = Math.max(2.0f, baseTime - (level * 0.2f));
 
-        return new Word(randomWord, customerId, timeLimit);
+        return new Word(randomWord, customerId);
     }
 
     public void setLevel(int level) {

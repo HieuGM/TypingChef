@@ -59,6 +59,11 @@ public class GameSession {
     private void initializeWordStations() {
         wordStations.add(new ActionStation(ActionType.PREPARE_BREAD, 100, 100, 100, 100));
         wordStations.add(new ActionStation(ActionType.PREPARE_COFFEE, 600, 100, 100, 100));
+        for (ActionStation station : wordStations) {
+            if (station.needsWord()) {
+                generateWordForStation(station);
+            }
+        }
     }
 
     public void update(float delta) {
@@ -86,9 +91,27 @@ public class GameSession {
             timeSinceLastCustomer = 0;
         }
 
-        if (timeSinceLastWord >= wordSpawnTime) {
-            spawnRandomWord();
-            timeSinceLastWord = 0;
+//        if (timeSinceLastWord >= wordSpawnTime) {
+//            spawnRandomWord();
+//            timeSinceLastWord = 0;
+//        }
+        for (ActionStation station : wordStations) {
+            if (station.needsWord()) {
+                generateWordForStation(station);
+            }
+        }
+    }
+    private void generateWordForStation(ActionStation station) {
+        Word newWord;
+
+        if (station.getActionType() == ActionType.SERVE_CUSTOMER) {
+            newWord = wordGenerator.generateWordForCustomer(station.getCustomerId());
+        } else {
+            newWord = wordGenerator.generateWord(station.getActionType());
+        }
+
+        if (newWord != null) {
+            station.setWord(newWord);
         }
     }
 
@@ -149,7 +172,6 @@ public class GameSession {
             newWord = wordGenerator.generateWord(randomStation.getActionType());
         }
 
-        // Đặt từ vào trạm
         if (newWord != null) {
             randomStation.setWord(newWord);
         }
@@ -199,6 +221,7 @@ public class GameSession {
                 break;
         }
     }
+
 
     public int getLevel() {
         return level;

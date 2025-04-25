@@ -46,12 +46,15 @@ public class ActionStation {
     }
 
     public void update(float delta) {
-        if (currentWord != null) {
-            boolean valid = currentWord.update(delta);
-            if (!valid) {
-                currentWord = null;
-            }
-        }
+//        if (currentWord != null) {
+//            boolean valid = currentWord.update(delta);
+//            if (!valid) {
+//                currentWord = null;
+//            }
+//        }
+    }
+    public boolean needsWord() {
+        return currentWord == null && isActive;
     }
 
     public ActionType getActionType() {
