@@ -1,7 +1,10 @@
 package com.typingchef.models.entities;
 
+import com.badlogic.gdx.graphics.Texture;
 import com.typingchef.models.systems.ActionStation;
+import com.typingchef.models.systems.PathManager;
 import com.typingchef.models.systems.WordGenerator;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +33,11 @@ public class GameSession {
     private int maxCustomers;
     private int customerCount;
 
-    public GameSession(int level) {
+    private Character chef;           // Nhân vật đầu bếp
+    private PathManager pathManager;   // Quản lý quỹ đạo
+    private float initialX, initialY;
+
+    public GameSession(int level, Texture chefTexture) {
         this.level = Math.max(1, level);
         this.score = 0;
         this.gameTime = 0;
@@ -45,15 +52,67 @@ public class GameSession {
         this.hasBread = false;
         this.hasCoffee = false;
 
-        this.wordSpawnTime = 5.0f - (level * 0.3f);
-        this.timeSinceLastWord = 0;
+        // Khởi tạo vị trí ban đầu của đầu bếp (giữa màn hình)
+        this.initialX = 400;
+        this.initialY = 300;
 
-        this.customerSpawnTime = 10.0f - (level * 0.5f);
-        this.timeSinceLastCustomer = 0;
-        this.maxCustomers = 3 + level;
-        this.customerCount = 0;
+        // Khởi tạo nhân vật
+        this.chef = new Character(chefTexture, initialX, initialY);
 
+        // Khởi tạo quản lý quỹ đạo
+        this.pathManager = new PathManager(initialX, initialY);
+
+        // Khởi tạo các trạm từ
         initializeWordStations();
+
+        // Đảm bảo mỗi trạm có một từ
+        for (ActionStation station : wordStations) {
+            if (!station.hasWord()) {
+                generateWordForStation(station);
+            }
+        }
+
+        this.chef.setMovementCompletedCallback(new Character.MovementCompletedCallback() {
+            @Override
+            public void onMovementCompleted(Path completedPath) {
+                // Thực hiện hành động dựa trên loại quỹ đạo
+                if (completedPath.getActionType() == ActionType.SERVE_CUSTOMER) {
+                    performServeAction(completedPath.getCustomerId());
+                } else {
+                    performAction(completedPath.getActionType());
+                }
+            }
+        });
+    }
+
+    private void performAction(ActionType actionType) {
+        switch (actionType) {
+            case PREPARE_BREAD:
+                hasBread = true;
+                break;
+            case PREPARE_COFFEE:
+                hasCoffee = true;
+                break;
+        }
+    }
+
+    /**
+     * Thực hiện hành động phục vụ khách hàng
+     * @param customerId ID của khách hàng
+     */
+    private void performServeAction(int customerId) {
+        // Tìm khách hàng theo ID
+        for (Customer customer : customers) {
+            if (customer.getId() == customerId) {
+                if (customer.serve(hasBread, hasCoffee)) {
+                    // Nếu phục vụ thành công, reset đồ đang cầm
+                    hasBread = false;
+                    hasCoffee = false;
+                    score += 10;
+                }
+                break;
+            }
+        }
     }
 
     private void initializeWordStations() {
@@ -71,32 +130,31 @@ public class GameSession {
             return;
         }
 
+        // Cập nhật thời gian
         gameTime += delta;
-        timeSinceLastWord += delta;
         timeSinceLastCustomer += delta;
 
+        // Kiểm tra hết thời gian level
         if (gameTime >= levelTime) {
             isGameOver = true;
             return;
         }
 
-        for (ActionStation station : wordStations) {
-            station.update(delta);
-        }
+        // Cập nhật nhân vật
+        chef.update(delta);
 
+        // Cập nhật khách hàng
         updateCustomers(delta);
 
+        // Tạo khách mới nếu cần
         if (customers.size() < maxCustomers && timeSinceLastCustomer >= customerSpawnTime) {
             spawnCustomer();
             timeSinceLastCustomer = 0;
         }
 
-//        if (timeSinceLastWord >= wordSpawnTime) {
-//            spawnRandomWord();
-//            timeSinceLastWord = 0;
-//        }
+        // Đảm bảo mỗi trạm có từ
         for (ActionStation station : wordStations) {
-            if (station.needsWord()) {
+            if (!station.hasWord()) {
                 generateWordForStation(station);
             }
         }
@@ -125,20 +183,25 @@ public class GameSession {
             if (!staying) {
                 customersToRemove.add(customer);
 
+                // Tìm trạm từ của khách và xóa
                 for (ActionStation station : wordStations) {
                     if (station.getActionType() == ActionType.SERVE_CUSTOMER &&
                         station.getCustomerId() == customer.getId()) {
                         stationsToRemove.add(station);
+                        // Xóa quỹ đạo đến khách này
+                        pathManager.removeCustomerPath(customer.getId());
                         break;
                     }
                 }
 
+                // Cộng điểm nếu khách hài lòng
                 if (customer.isHappy()) {
                     score += 10;
                 }
             }
         }
 
+        // Xóa khách và trạm
         customers.removeAll(customersToRemove);
         wordStations.removeAll(stationsToRemove);
     }
@@ -148,9 +211,17 @@ public class GameSession {
         Customer newCustomer = new Customer(++customerCount, patience);
         customers.add(newCustomer);
 
+        // Tạo trạm phục vụ cho khách
         int stationX = 300 + (customers.size() - 1) * 150;
         int stationY = 400;
-        wordStations.add(new ActionStation(stationX, stationY, 100, 100, newCustomer.getId()));
+        ActionStation customerStation = new ActionStation(stationX, stationY, 100, 100, newCustomer.getId());
+        wordStations.add(customerStation);
+
+        // Tạo quỹ đạo đến khách này
+        pathManager.createCustomerPath(newCustomer.getId(), stationX + 50, stationY + 50);
+
+        // Sinh từ cho trạm khách hàng
+        generateWordForStation(customerStation);
     }
 
     private void spawnRandomWord() {
@@ -178,15 +249,30 @@ public class GameSession {
     }
 
     public boolean checkWord(String input) {
-        if (input == null || input.trim().isEmpty()) {
+        if (input == null || input.isEmpty()) {
             return false;
         }
 
+        // Kiểm tra từng trạm
         for (ActionStation station : wordStations) {
             Word word = station.getCurrentWord();
             if (word != null && word.matches(input)) {
-                performAction(station);
+                // Nếu nhân vật đang di chuyển, không cho thực hiện hành động mới
+                if (chef.isMoving()) {
+                    return false;
+                }
+
+                // Lấy quỹ đạo đến trạm này
+                Path path = pathManager.getPathForStation(station);
+
+                // Bắt đầu di chuyển nhân vật theo quỹ đạo
+                chef.startMovingOnPath(path);
+
+                // Xóa từ khỏi trạm
                 station.clearWord();
+
+                // Thực hiện hành động (sẽ được gọi khi nhân vật đến nơi)
+                // Thay vì thực hiện ngay, ta sẽ đợi đến khi nhân vật di chuyển xong
                 return true;
             }
         }
@@ -257,5 +343,9 @@ public class GameSession {
 
     public boolean hasCoffee() {
         return hasCoffee;
+    }
+
+    public Character getChef() {
+        return chef;
     }
 }
