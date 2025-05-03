@@ -1,14 +1,14 @@
 package com.typingchef.models.entities;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.typingchef.models.entities.Path;
 
 public class Character {
-    private static final int FRAME_COLS = 22;  // Điều chỉnh số cột trong
-    private static final int FRAME_ROWS = 1;   // Điều chỉnh số hàng trong
+    private static final int FRAME_COLS = 22;  // Số cột
+    private static final int FRAME_ROWS = 1;   // Số hàng
 
     private Animation<TextureRegion> walkAnimation;
     private float stateTime;
@@ -40,9 +40,9 @@ public class Character {
 
     private void createAnimation(Texture spriteSheet) {
         TextureRegion[][] tmp = TextureRegion.split(
-            spriteSheet,
-            spriteSheet.getWidth() / FRAME_COLS,
-            spriteSheet.getHeight() / FRAME_ROWS
+                spriteSheet,
+                spriteSheet.getWidth() / FRAME_COLS,
+                spriteSheet.getHeight() / FRAME_ROWS
         );
 
         TextureRegion[] walkFrames = new TextureRegion[FRAME_COLS * FRAME_ROWS];
@@ -52,7 +52,6 @@ public class Character {
                 walkFrames[index++] = tmp[i][j];
             }
         }
-
 
         walkAnimation = new Animation<>(0.05f, walkFrames);
         walkAnimation.setPlayMode(Animation.PlayMode.LOOP);
@@ -111,6 +110,7 @@ public class Character {
         this.callback = callback;
     }
 
+    // Getters and setters
     public float getX() { return x; }
     public float getY() { return y; }
     public float getWidth() { return width; }
