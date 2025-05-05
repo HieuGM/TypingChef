@@ -16,6 +16,7 @@ public class Character {
     private float x, y;
     private float width, height;
     private boolean isMoving;
+
     private float moveSpeed = 200; // pixels per second
     private float targetX, targetY;
 
