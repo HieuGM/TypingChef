@@ -1,28 +1,26 @@
 package com.typingchef.views.screens;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
-import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TiledMapRenderer;
 import com.badlogic.gdx.maps.tiled.TmxMapLoader;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
-import com.badlogic.gdx.math.MathUtils;
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.typingchef.Main;
+import com.typingchef.controllers.TypingController;
 import com.typingchef.models.entities.ActionType;
-import com.typingchef.models.entities.Character;
 import com.typingchef.models.entities.Path;
+import com.typingchef.models.systems.StationManager;
 import com.typingchef.views.animations.AnimationManager;
+import com.typingchef.views.components.WordBubble;
+import com.typingchef.models.entities.Character;
 
 public class MainScreen implements Screen {
     private Main game;
@@ -33,12 +31,12 @@ public class MainScreen implements Screen {
     private Stage stage;
     private AnimationManager animation;
 
-    private Texture chefTexture;
-    private float chefX, chefY;
-    private float targetX, targetY; // Vị trí đích
-    private boolean isMoving;       // Đang di chuyển
-    private float moveSpeed;        // Tốc độ di chuyển
     private Character chef;
+    private Texture chefTexture;
+
+    private StationManager stationManager;
+    private TypingController typingController;
+    private ShapeRenderer shapeRenderer;
 
     public MainScreen(Main game) {
         this.game = game;
@@ -53,22 +51,22 @@ public class MainScreen implements Screen {
 
         stage = new Stage(new StretchViewport(width, height, camera), batch);
 
-        Gdx.input.setInputProcessor(stage);
-        Gdx.input.setInputProcessor(new InputAdapter() {
-            @Override
-            public boolean keyDown(int keycode) {
-                if (keycode == Input.Keys.SPACE) {
-                    float randomX = MathUtils.random(100, Gdx.graphics.getWidth() - 100);
-                    float randomY = MathUtils.random(100, Gdx.graphics.getHeight() - 100);
-                    moveChefTo(randomX, randomY);
-                    return true;
-                }
-                return false;
-            }
-        });
+        shapeRenderer = new ShapeRenderer();
+
+        stationManager = new StationManager();
+        stationManager.setBreadStationPosition(50, 50);
+        stationManager.setCoffeeStationPosition(100, 100);
+
+        typingController = new TypingController(this);
+
+        Gdx.input.setInputProcessor(typingController);
+
         loadMap();
 
         loadChef();
+
+        stationManager.activateBreadStation("bread");
+        stationManager.activateCoffeeStation("coffee");
     }
 
     public void loadMap() {
@@ -87,7 +85,6 @@ public class MainScreen implements Screen {
 
             float startX = Gdx.graphics.getWidth() / 2 - 32;
             float startY = Gdx.graphics.getHeight() / 2 - 32;
-
             chef = new Character(chefTexture, startX, startY);
 
         } catch (Exception e) {
@@ -103,6 +100,12 @@ public class MainScreen implements Screen {
         chef.startMovingOnPath(path);
     }
 
+    public void moveChefToStation(String stationType) {
+        float targetX = stationManager.getStationX(stationType);
+        float targetY = stationManager.getStationY(stationType);
+        moveChefTo(targetX, targetY);
+    }
+
     public void addAnimation() {
         animation = new AnimationManager();
         animation.setPosition(Gdx.graphics.getWidth() / 2, Gdx.graphics.getHeight() / 2);
@@ -116,53 +119,39 @@ public class MainScreen implements Screen {
 
     @Override
     public void render(float delta) {
+        // Clear screen
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
+        // Update camera
         camera.update();
 
+        // Render map
         if (renderer != null) {
             renderer.setView(camera);
             renderer.render();
         }
 
+        // Cập nhật chef và stationManager
         chef.update(delta);
+        stationManager.update(delta);
 
         batch.begin();
-
         chef.render(batch);
-
         batch.end();
+
+        stationManager.render(batch, game.font, shapeRenderer);
 
         stage.act(delta);
         stage.draw();
     }
 
-    private void updateChefPosition(float delta) {
-        if (isMoving) {
-            float dx = targetX - chefX;
-            float dy = targetY - chefY;
-            float distance = (float) Math.sqrt(dx*dx + dy*dy);
-
-            if (distance > 5) {
-                float moveDistance = moveSpeed * delta;
-                float ratio = moveDistance / distance;
-
-                chefX += dx * ratio;
-                chefY += dy * ratio;
-            } else {
-                chefX = targetX;
-                chefY = targetY;
-                isMoving = false;
-                System.out.println("Chef đã đến đích!");
-
-            }
-        }
+    public WordBubble processTypedCharacter(char c) {
+        return stationManager.processTypedCharacter(c);
     }
 
     @Override
     public void resize(int width, int height) {
-
         stage.getViewport().update(width, height, true);
         camera.position.set(width / 2f, height / 2f, 0);
         camera.update();
@@ -191,6 +180,9 @@ public class MainScreen implements Screen {
         if (chefTexture != null) {
             chefTexture.dispose();
         }
+        if (shapeRenderer != null) {
+            shapeRenderer.dispose();
+        }
         stage.dispose();
     }
 
@@ -198,14 +190,12 @@ public class MainScreen implements Screen {
         return camera;
     }
 
+    /**
+     * Kiểm tra một từ, để sử dụng sau này
+     */
     public boolean checkWord(String word) {
+        // Sẽ được mở rộng để kiểm tra từ và di chuyển nhân vật
         System.out.println("Kiểm tra từ: " + word);
-
-        if (word.equalsIgnoreCase("move")) {
-            moveChefTo(300, 200);
-            return true;
-        }
-
         return false;
     }
 }
