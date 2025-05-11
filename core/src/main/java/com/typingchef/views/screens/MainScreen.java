@@ -23,6 +23,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.actions.Actions;
+import com.badlogic.gdx.scenes.scene2d.actions.RunnableAction;
 import com.badlogic.gdx.scenes.scene2d.actions.SequenceAction;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
@@ -36,9 +37,13 @@ import com.typingchef.Main;
 import com.typingchef.models.entities.ActionType;
 import com.typingchef.models.entities.Character;
 import com.typingchef.models.entities.Path;
-import com.typingchef.views.animations.AnimationManager;
+import com.typingchef.views.animations.AnimatedCharacter;
+
 
 public class MainScreen implements Screen {
+    private AnimatedCharacter adam;
+    private AnimatedCharacter alice;
+
     private Main game;
     private TiledMap map;
     private OrthographicCamera camera;
@@ -47,7 +52,7 @@ public class MainScreen implements Screen {
     private TiledMapRenderer renderer;
     private SpriteBatch batch;
     private Stage stage;
-    private AnimationManager animation;
+
 
     private Texture chefTexture;
     private float chefX, chefY;
@@ -61,7 +66,7 @@ public class MainScreen implements Screen {
     private Image aliceActor;
     private Texture bobTexture;
     private Texture aliceTexture;
-
+    private boolean hasReachedChair = false;
     // Paths
     private ObjectMap<String, Array<Vector2>> allPaths;
     private float baseSpeed = 20f;
@@ -98,37 +103,34 @@ public class MainScreen implements Screen {
 
     private void loadActorsAndPaths() {
         float tileSize = 16f;
-        // Load textures
-        bobTexture = new Texture("bob_run.png");
-        aliceTexture = new Texture("alice_run.png");
+        // Tạo nhân vật Adam với 6 frame cho mỗi hướng
+        adam = new AnimatedCharacter("character_actions/Adam_run_16x16.png", 16, 32, 6, 0.1f);
+        adam.loadSitAnimation("character_actions/Adam_sit3_16x16.png");
+        stage.addActor(adam);
 
-        // Create Image actors
-        bobActor = new Image(bobTexture);
-        bobActor.setSize(tileSize, tileSize);
-        aliceActor = new Image(aliceTexture);
-        aliceActor.setSize(tileSize, tileSize);
-        stage.addActor(bobActor);
-        stage.addActor(aliceActor);
+        alice = new AnimatedCharacter("character_actions/Amelia_run_16x16.png", 16, 32, 6, 0.1f);
+        alice.loadSitAnimation("character_actions/Amelia_sit3_16x16.png");
+        stage.addActor(alice);
 
         // Load all paths from Object Layer "path"
         allPaths = loadAllPaths("path");
 
-        // Initialize Bob on "ghegancua"
+        // Di chuyển Adam
         if (allPaths.containsKey("ghegancua")) {
-            Array<Vector2> bobPath = allPaths.get("ghegancua");
-            if (bobPath.size > 0) {
-                Vector2 start = bobPath.first();
-                bobActor.setPosition(start.x, start.y);
-                moveAlongPath(bobActor, bobPath);
+            Array<Vector2> adamPath = allPaths.get("ghegancua");
+            if (adamPath.size > 0) {
+                Vector2 start = adamPath.first();
+                adam.setPosition(start.x, start.y);
+                moveAlongPath1(adam, adamPath);
             }
         }
-        // Initialize Alice on "ghexacua"
+
         if (allPaths.containsKey("ghexacua")) {
             Array<Vector2> alicePath = allPaths.get("ghexacua");
             if (alicePath.size > 0) {
                 Vector2 start = alicePath.first();
-                aliceActor.setPosition(start.x, start.y);
-                moveAlongPath(aliceActor, alicePath);
+                alice.setPosition(start.x, start.y);
+                moveAlongPath1(alice, alicePath);
             }
         }
     }
@@ -152,20 +154,44 @@ public class MainScreen implements Screen {
         return paths;
     }
 
-    private void moveAlongPath(Image actor, Array<Vector2> path) {
-        // Create a single sequence of move actions for smooth, concurrent movement
+    private void moveAlongPath1(final AnimatedCharacter character, Array<Vector2> path) {
         SequenceAction seq = Actions.sequence();
-        float speed = baseSpeed; // pixels per second
+        float speed = baseSpeed;
+
         for (int i = 1; i < path.size; i++) {
-            Vector2 from = path.get(i - 1);
-            Vector2 to = path.get(i);
+            final Vector2 from = path.get(i - 1);
+            final Vector2 to = path.get(i);
             float dist = from.dst(to);
             float duration = dist / speed;
-            // Use linear interpolation for consistent speed
+
+            // Update movement direction
+            RunnableAction updateDirection = Actions.run(() -> {
+                character.updateDirection(from, to);
+            });
+
+            seq.addAction(updateDirection);
             seq.addAction(Actions.moveTo(to.x, to.y, duration, Interpolation.linear));
+
+            // At the last point, determine sitting direction based on previous position
+            if (i == path.size - 1) {
+                final int finalI = i;
+                seq.addAction(Actions.run(() -> {
+                    // Calculate sitting direction based on final movement
+                    Vector2 lastMove = new Vector2(path.get(finalI).x - path.get(finalI - 1).x,
+                        path.get(finalI).y - path.get(finalI - 1).y);
+
+                    // If moving right or at same position, sit facing right
+                    if (lastMove.x >= 0) {
+                        character.setSitDirection(AnimatedCharacter.SitDirection.RIGHT);
+                    } else {
+                        character.setSitDirection(AnimatedCharacter.SitDirection.LEFT);
+                    }
+                    character.sit();
+                }));
+            }
         }
-        // Add the combined sequence to actor once
-        actor.addAction(seq);
+
+        character.addAction(seq);
     }
 
     public void moveChefTo(float x, float y) {
@@ -182,11 +208,7 @@ public class MainScreen implements Screen {
         chef.startMovingOnPath(path);
     }
 
-    public void addAnimation() {
-        animation = new AnimationManager();
-        animation.setPosition(Gdx.graphics.getWidth() / 2, Gdx.graphics.getHeight() / 2);
-        stage.addActor(animation);
-    }
+
 
     @Override
     public void show() {
@@ -198,13 +220,16 @@ public class MainScreen implements Screen {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
+        // Update animations
+        adam.update(delta);
+        alice.update(delta);
+
+        // Render bình thường
         camera.update();
         if (renderer != null) {
             renderer.setView(camera);
             renderer.render();
         }
-//
-//        updatePlayerPosition(delta);
 
         batch.setProjectionMatrix(camera.combined);
         stage.act(delta);
