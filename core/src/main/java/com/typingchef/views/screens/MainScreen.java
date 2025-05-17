@@ -5,6 +5,20 @@ import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.maps.MapLayer;
+import com.badlogic.gdx.maps.MapObject;
+import com.badlogic.gdx.maps.MapObjects;
+import com.badlogic.gdx.maps.objects.PolylineMapObject;
+import com.badlogic.gdx.math.Interpolation;
+import com.badlogic.gdx.math.Polyline;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.actions.Actions;
+import com.badlogic.gdx.scenes.scene2d.actions.SequenceAction;
+import com.badlogic.gdx.scenes.scene2d.ui.Image;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.ObjectMap;
+import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.maps.tiled.TiledMap;
@@ -37,6 +51,16 @@ public class MainScreen implements Screen {
     private StationManager stationManager;
     private TypingController typingController;
     private ShapeRenderer shapeRenderer;
+    private Viewport viewport;
+    // Two characters
+    private Image bobActor;
+    private Image aliceActor;
+    private Texture bobTexture;
+    private Texture aliceTexture;
+
+    // Paths
+    private ObjectMap<String, Array<Vector2>> allPaths;
+    private float baseSpeed = 20f;
 
     public MainScreen(Main game) {
         this.game = game;
@@ -44,12 +68,14 @@ public class MainScreen implements Screen {
         float height = Gdx.graphics.getHeight();
 
         camera = new OrthographicCamera();
+        viewport = new StretchViewport(400, 272, camera);
+        viewport.apply();
         camera.setToOrtho(false, width, height);
         camera.update();
 
         batch = game.batch;
 
-        stage = new Stage(new StretchViewport(width, height, camera), batch);
+        stage = new Stage(viewport, batch);
 
         shapeRenderer = new ShapeRenderer();
 
@@ -62,7 +88,7 @@ public class MainScreen implements Screen {
         Gdx.input.setInputProcessor(typingController);
 
         loadMap();
-
+        loadActorsAndPaths();
         loadChef();
 
         stationManager.activateBreadStation();
@@ -92,11 +118,85 @@ public class MainScreen implements Screen {
             e.printStackTrace();
         }
     }
+    private void loadActorsAndPaths() {
+        float tileSize = 16f;
+        // Load textures
+        bobTexture = new Texture("bob_run.png");
+        aliceTexture = new Texture("alice_run.png");
 
+        // Create Image actors
+        bobActor = new Image(bobTexture);
+        bobActor.setSize(tileSize, tileSize);
+        aliceActor = new Image(aliceTexture);
+        aliceActor.setSize(tileSize, tileSize);
+        stage.addActor(bobActor);
+        stage.addActor(aliceActor);
+
+        // Load all paths from Object Layer "path"
+        allPaths = loadAllPaths("path");
+
+        // Initialize Bob on "ghegancua"
+        if (allPaths.containsKey("ghegancua")) {
+            Array<Vector2> bobPath = allPaths.get("ghegancua");
+            if (bobPath.size > 0) {
+                Vector2 start = bobPath.first();
+                bobActor.setPosition(start.x, start.y);
+                moveAlongPath(bobActor, bobPath);
+            }
+        }
+        // Initialize Alice on "ghexacua"
+        if (allPaths.containsKey("ghexacua")) {
+            Array<Vector2> alicePath = allPaths.get("ghexacua");
+            if (alicePath.size > 0) {
+                Vector2 start = alicePath.first();
+                aliceActor.setPosition(start.x, start.y);
+                moveAlongPath(aliceActor, alicePath);
+            }
+        }
+    }
+    private ObjectMap<String, Array<Vector2>> loadAllPaths(String layerName) {
+        ObjectMap<String, Array<Vector2>> paths = new ObjectMap<>();
+        MapLayer layer = map.getLayers().get(layerName);
+        if (layer != null) {
+            for (MapObject obj : layer.getObjects()) {
+                if (obj instanceof PolylineMapObject) {
+                    String name = obj.getName();
+                    float[] verts = ((PolylineMapObject) obj).getPolyline().getTransformedVertices();
+                    Array<Vector2> pts = new Array<>();
+                    for (int i = 0; i < verts.length; i += 2) {
+                        pts.add(new Vector2(verts[i], verts[i + 1]));
+                    }
+                    if (name != null) paths.put(name, pts);
+                }
+            }
+        }
+        return paths;
+    }
+    private void moveAlongPath(Image actor, Array<Vector2> path) {
+        // Create a single sequence of move actions for smooth, concurrent movement
+        SequenceAction seq = Actions.sequence();
+        float speed = baseSpeed; // pixels per second
+        for (int i = 1; i < path.size; i++) {
+            Vector2 from = path.get(i - 1);
+            Vector2 to = path.get(i);
+            float dist = from.dst(to);
+            float duration = dist / speed;
+            // Use linear interpolation for consistent speed
+            seq.addAction(Actions.moveTo(to.x, to.y, duration, Interpolation.linear));
+        }
+        // Add the combined sequence to actor once
+        actor.addAction(seq);
+    }
     public void moveChefTo(float x, float y) {
+        float viewportWidth = viewport.getWorldWidth();
+        float viewportHeight = viewport.getWorldHeight();
+
+        // Điều chỉnh tọa độ của nhân vật khi phóng to hoặc thu nhỏ
+        float worldX = x * (viewportWidth / Gdx.graphics.getWidth());
+        float worldY = y * (viewportHeight / Gdx.graphics.getHeight());
         Path path = new Path(ActionType.PREPARE_BREAD);
         path.addPoint(chef.getX(), chef.getY());
-        path.addPoint(x, y);
+        path.addPoint(worldX, worldY);
         chef.startMovingOnPath(path);
     }
 
@@ -139,7 +239,7 @@ public class MainScreen implements Screen {
         batch.begin();
         chef.render(batch);
         batch.end();
-
+        batch.setProjectionMatrix(camera.combined);
         stationManager.render(batch, game.font, shapeRenderer);
         stationManager.activateBreadStation();
         stationManager.activateCoffeeStation();
@@ -156,6 +256,7 @@ public class MainScreen implements Screen {
         stage.getViewport().update(width, height, true);
         camera.position.set(width / 2f, height / 2f, 0);
         camera.update();
+        viewport.update(width, height);
     }
 
     @Override
@@ -189,14 +290,5 @@ public class MainScreen implements Screen {
 
     public OrthographicCamera getCamera() {
         return camera;
-    }
-
-    /**
-     * Kiểm tra một từ, để sử dụng sau này
-     */
-    public boolean checkWord(String word) {
-        // Sẽ được mở rộng để kiểm tra từ và di chuyển nhân vật
-        System.out.println("Kiểm tra từ: " + word);
-        return false;
     }
 }
