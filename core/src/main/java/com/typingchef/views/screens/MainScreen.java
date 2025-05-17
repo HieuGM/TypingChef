@@ -65,8 +65,8 @@ public class MainScreen implements Screen {
 
         loadChef();
 
-        stationManager.activateBreadStation("bread");
-        stationManager.activateCoffeeStation("coffee");
+        stationManager.activateBreadStation();
+        stationManager.activateCoffeeStation();
     }
 
     public void loadMap() {
@@ -141,7 +141,8 @@ public class MainScreen implements Screen {
         batch.end();
 
         stationManager.render(batch, game.font, shapeRenderer);
-
+        stationManager.activateBreadStation();
+        stationManager.activateCoffeeStation();
         stage.act(delta);
         stage.draw();
     }
