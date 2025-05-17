@@ -13,14 +13,22 @@ public class StationManager {
     private List<WordBubble> activeBubbles;
     private boolean breadStationActive = false;
     private boolean coffeeStationActive = false;
+    private boolean customer1StationActive = false;
+    private boolean customer2StationActive = false;
 
     private float breadStationX = 150;
     private float breadStationY = 100;
     private float coffeeStationX = 600;
     private float coffeeStationY = 100;
+    private float customer1StationX = 300;
+    private float customer1StationY = 200;
+    private float customer2StationX = 500;
+    private float customer2StationY = 200;
 
     private String[] breadWords = {"bread", "toast", "baguette", "roll", "croissant"};
     private String[] coffeeWords = {"coffee", "espresso", "latte", "mocha", "cappuccino"};
+    private String[] customer1Words = {"order", "please", "serve", "menu", "water"};
+    private String[] customer2Words = {"check", "bill", "thanks", "delicious", "tasty"};
 
     public StationManager() {
         activeBubbles = new ArrayList<>();
@@ -50,28 +58,22 @@ public class StationManager {
         }
     }
 
-    /**
-     * Kích hoạt trạm bánh mì với từ cụ thể
-     */
-    public void activateBreadStation(String word) {
-        if (!breadStationActive) {
-            WordBubble bubble = new WordBubble(word, breadStationX, breadStationY, "bread");
+    public void activateCustomer1Station() {
+        if (!customer1StationActive) {
+            int index = (int)(Math.random() * customer1Words.length);
+            WordBubble bubble = new WordBubble(customer1Words[index], customer1StationX, customer1StationY, "customer1");
             activeBubbles.add(bubble);
-            breadStationActive = true;
+            customer1StationActive = true;
         }
     }
-
-    /**
-     * Kích hoạt trạm cà phê với từ cụ thể
-     */
-    public void activateCoffeeStation(String word) {
-        if (!coffeeStationActive) {
-            WordBubble bubble = new WordBubble(word, coffeeStationX, coffeeStationY, "coffee");
+    public void activateCustomer2Station() {
+        if (!customer2StationActive) {
+            int index = (int)(Math.random() * customer2Words.length);
+            WordBubble bubble = new WordBubble(customer2Words[index], customer2StationX, customer2StationY, "customer2");
             activeBubbles.add(bubble);
-            coffeeStationActive = true;
+            customer2StationActive = true;
         }
     }
-
     /**
      * Cập nhật các bong bóng từ hiện có
      */
@@ -88,6 +90,10 @@ public class StationManager {
                     breadStationActive = false;
                 } else if (bubble.getStationType().equals("coffee")) {
                     coffeeStationActive = false;
+                } else if (bubble.getStationType().equals("customer1")) {
+                    customer1StationActive = false;
+                } else if (bubble.getStationType().equals("customer2")) {
+                    customer2StationActive = false;
                 }
             }
         }
@@ -129,26 +135,30 @@ public class StationManager {
         return null;
     }
 
-    /**
-     * Kiểm tra xem một trạm có đang hoạt động không
-     */
-    public boolean isStationActive(String stationType) {
-        if (stationType.equals("bread")) {
-            return breadStationActive;
-        } else if (stationType.equals("coffee")) {
-            return coffeeStationActive;
+    public WordBubble findBubbleStartingWith(char c) {
+        for (WordBubble bubble : activeBubbles) {
+            if (!bubble.isCompleted() && !bubble.isTimeout()) {
+                String bubbleText = bubble.getText();
+                if (bubbleText.length() > 0 &&
+                        Character.toLowerCase(bubbleText.charAt(0)) == c) {
+                    return bubble;
+                }
+            }
         }
-        return false;
+        return null;
     }
-
     /**
      * Lấy vị trí X của một trạm
      */
     public float getStationX(String stationType) {
-        if (stationType.equals("bread")) {
+        if ("bread".equals(stationType)) {
             return breadStationX;
-        } else if (stationType.equals("coffee")) {
+        } else if ("coffee".equals(stationType)) {
             return coffeeStationX;
+        } else if ("customer1".equals(stationType)) {
+            return customer1StationX;
+        } else if ("customer2".equals(stationType)) {
+            return customer2StationX;
         }
         return 0;
     }
@@ -157,27 +167,48 @@ public class StationManager {
      * Lấy vị trí Y của một trạm
      */
     public float getStationY(String stationType) {
-        if (stationType.equals("bread")) {
+        if ("bread".equals(stationType)) {
             return breadStationY;
-        } else if (stationType.equals("coffee")) {
+        } else if ("coffee".equals(stationType)) {
             return coffeeStationY;
+        } else if ("customer1".equals(stationType)) {
+            return customer1StationY;
+        } else if ("customer2".equals(stationType)) {
+            return customer2StationY;
         }
         return 0;
     }
 
-    /**
-     * Thiết lập vị trí cho trạm bánh
-     */
     public void setBreadStationPosition(float x, float y) {
         this.breadStationX = x;
         this.breadStationY = y;
+
+        // Cập nhật vị trí cho các bong bóng hiện có
+        for (WordBubble bubble : activeBubbles) {
+            if ("bread".equals(bubble.getStationType())) {
+                bubble.setPosition(x, y);
+            }
+        }
     }
 
-    /**
-     * Thiết lập vị trí cho trạm cà phê
-     */
     public void setCoffeeStationPosition(float x, float y) {
         this.coffeeStationX = x;
         this.coffeeStationY = y;
+
+        // Cập nhật vị trí cho các bong bóng hiện có
+        for (WordBubble bubble : activeBubbles) {
+            if ("coffee".equals(bubble.getStationType())) {
+                bubble.setPosition(x, y);
+            }
+        }
+    }
+    public void setCustomer1StationPosition(float x, float y) {
+        this.customer1StationX = x;
+        this.customer1StationY = y;
+    }
+
+    public void setCustomer2StationPosition(float x, float y) {
+        this.customer2StationX = x;
+        this.customer2StationY = y;
     }
 }

@@ -19,7 +19,8 @@ public class Main extends ApplicationAdapter {
     public void create() {
         batch = new SpriteBatch();
         font = new BitmapFont();
-        font.getData().setScale(1.5f);
+        float width = Gdx.graphics.getWidth();
+        float height = Gdx.graphics.getHeight();
         mainScreen = new MainScreen(this);
     }
 

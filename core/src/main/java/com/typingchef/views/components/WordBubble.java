@@ -198,7 +198,7 @@ public class WordBubble {
     /**
      * Vẽ hình dạng bong bóng chat
      */
-    private void drawBubbleShape(ShapeRenderer renderer) {
+    public void drawBubbleShape(ShapeRenderer renderer) {
         renderer.rect(
             bounds.x, bounds.y,
             bounds.width, bounds.height
@@ -237,7 +237,12 @@ public class WordBubble {
             return false;
         }
     }
-
+    public void setPosition(float x, float y) {
+        this.x = x;
+        this.y = y;
+        // Tính lại bounds khi vị trí thay đổi
+        calculateBounds(null);
+    }
     // Getters
     public boolean isCompleted() { return completed; }
     public boolean isTimeout() { return timer >= timeLimit; }
