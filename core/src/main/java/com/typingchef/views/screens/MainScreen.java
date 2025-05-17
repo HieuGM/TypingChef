@@ -2,6 +2,7 @@ package com.typingchef.views.screens;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
@@ -30,11 +31,14 @@ import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.typingchef.Main;
 import com.typingchef.controllers.TypingController;
 import com.typingchef.models.entities.ActionType;
+import com.typingchef.models.entities.GameState;
 import com.typingchef.models.entities.Path;
 import com.typingchef.models.systems.StationManager;
 import com.typingchef.views.animations.AnimationManager;
 import com.typingchef.views.components.WordBubble;
 import com.typingchef.models.entities.Character;
+
+// Thêm vào đầu lớp MainScreen
 
 public class MainScreen implements Screen {
     private Main game;
@@ -52,6 +56,25 @@ public class MainScreen implements Screen {
     private TypingController typingController;
     private ShapeRenderer shapeRenderer;
     private Viewport viewport;
+    // Thêm các biến mới
+    public GameState gameState = GameState.READY;
+    private int score = 0;
+    private float gameTimer = 120; // 2 phút = 120 giây
+    private final float GAME_DURATION = 120f;
+    private final int WORD_SCORE = 10; // Điểm cho mỗi từ
+    private final int VIEWPORT_WIDTH = 400;
+    private final int VIEWPORT_HEIGHT = 272;
+    // Thêm biến cho hiệu ứng điểm
+    private float scoreEffectTimer = 0;
+    private int lastScore = 0;
+
+    // Trong phương thức addScore()
+    public void addScore() {
+        if (gameState == GameState.PLAYING) {
+            score += WORD_SCORE;
+            scoreEffectTimer = 0.5f; // Hiệu ứng kéo dài 0.5 giây
+        }
+    }
     // Two characters
     private Image bobActor;
     private Image aliceActor;
@@ -81,7 +104,9 @@ public class MainScreen implements Screen {
 
         stationManager = new StationManager();
         stationManager.setBreadStationPosition(50, 50);
-        stationManager.setCoffeeStationPosition(100, 100);
+        stationManager.setCoffeeStationPosition(50, 150);
+        stationManager.setCustomer1StationPosition(300, 50);
+        stationManager.setCustomer2StationPosition(300, 150);
 
         typingController = new TypingController(this);
 
@@ -90,9 +115,11 @@ public class MainScreen implements Screen {
         loadMap();
         loadActorsAndPaths();
         loadChef();
-
+        stationManager.activateCustomer1Station();
+        stationManager.activateCustomer2Station();
         stationManager.activateBreadStation();
         stationManager.activateCoffeeStation();
+
     }
 
     public void loadMap() {
@@ -172,6 +199,125 @@ public class MainScreen implements Screen {
         }
         return paths;
     }
+    private void updateGameState(float delta) {
+        switch (gameState) {
+            case READY:
+                // Bắt đầu chơi khi người dùng gõ phím đầu tiên
+                // (sẽ được xử lý trong TypingController)
+                break;
+
+            case PLAYING:
+                // Giảm thời gian
+                gameTimer -= delta;
+
+                // Kiểm tra hết giờ
+                if (gameTimer <= 0) {
+                    gameTimer = 0;
+                    gameState = GameState.GAME_OVER;
+                }
+                break;
+
+            case GAME_OVER:
+                // Dừng trò chơi
+                break;
+        }
+        if (scoreEffectTimer > 0) {
+            scoreEffectTimer -= delta;
+        }
+    }
+    /**
+     * Render giao diện người dùng
+     */
+    private void renderUI() {
+        // Bắt đầu batch cho UI
+        batch.begin();
+
+        // Lưu màu font gốc
+        Color originalColor = game.font.getColor();
+
+        switch (gameState) {
+            case READY:
+                // Hiển thị màn hình bắt đầu
+                game.font.setColor(Color.YELLOW);
+                game.font.draw(batch, "Type to start!", VIEWPORT_WIDTH / 2 - 150, VIEWPORT_HEIGHT / 2);
+                break;
+
+            case PLAYING:
+                if (gameTimer <= 10) { // 10 giây cuối
+                    float alpha = (float)Math.abs(Math.sin(gameTimer * 5)); // Nhấp nháy
+                    game.font.setColor(new Color(1, 0, 0, 0.5f + alpha * 0.5f)); // Đỏ nhấp nháy
+                } else if (gameTimer <= 30) { // 30 giây cuối
+                    game.font.setColor(Color.ORANGE);
+                } else {
+                    game.font.setColor(Color.YELLOW);
+                }
+
+                game.font.draw(batch, "Time: " + formatTime(gameTimer), 10, VIEWPORT_HEIGHT - 20);
+                game.font.setColor(Color.WHITE);
+                game.font.draw(batch, "Score: " + score, VIEWPORT_WIDTH - 100, VIEWPORT_HEIGHT - 20);
+                break;
+
+            case GAME_OVER:
+                batch.end();
+                Gdx.gl.glEnable(Gdx.gl.GL_BLEND);
+                shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+                shapeRenderer.setColor(new Color(0, 0, 0, 0.7f));
+                shapeRenderer.rect(VIEWPORT_WIDTH / 2 - 200, VIEWPORT_HEIGHT / 2 - 100, 400, 200);
+                shapeRenderer.end();
+
+                // Vẽ viền panel
+                shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+                shapeRenderer.setColor(Color.YELLOW);
+                shapeRenderer.rect(VIEWPORT_WIDTH / 2 - 200, VIEWPORT_HEIGHT / 2 - 100, 400, 200);
+                shapeRenderer.end();
+                Gdx.gl.glDisable(Gdx.gl.GL_BLEND);
+                batch.begin();
+                // Hiển thị kết quả
+                game.font.setColor(Color.YELLOW);
+                game.font.draw(batch, "GAME OVER!", VIEWPORT_WIDTH / 2 - 40, VIEWPORT_HEIGHT / 2 + 40);
+                game.font.setColor(Color.WHITE);
+                game.font.draw(batch, "Your Score: " + score, VIEWPORT_WIDTH / 2 - 80, VIEWPORT_HEIGHT / 2);
+                game.font.draw(batch, "SPACE TO REPLAY", VIEWPORT_WIDTH / 2 - 100, VIEWPORT_HEIGHT / 2 - 40);
+                break;
+        }
+
+        // Khôi phục màu font
+        game.font.setColor(originalColor);
+        if (scoreEffectTimer > 0) {
+            // Hiển thị điểm vừa thêm với hiệu ứng
+            game.font.setColor(Color.GREEN);
+            game.font.getData().setScale(1.2f);
+            game.font.draw(batch, "+" + WORD_SCORE, VIEWPORT_WIDTH - 60, VIEWPORT_HEIGHT - 50);
+            game.font.getData().setScale(1f);
+        }
+        batch.end();
+    }
+    private String formatTime(float timeInSeconds) {
+        int minutes = (int)(timeInSeconds / 60);
+        int seconds = (int)(timeInSeconds % 60);
+        return String.format("%d:%02d", minutes, seconds);
+    }
+    /**
+     * Bắt đầu trò chơi
+     */
+    public void startGame() {
+        if (gameState == GameState.READY) {
+            gameState = GameState.PLAYING;
+            gameTimer = GAME_DURATION;
+            score = 0;
+
+            // Khởi tạo lại các trạm nếu cần
+            stationManager.activateBreadStation();
+            stationManager.activateCoffeeStation();
+            stationManager.activateCustomer1Station();
+            stationManager.activateCustomer2Station();
+        }
+    }
+    public void resetGame() {
+        if (gameState == GameState.GAME_OVER) {
+            gameState = GameState.READY;
+        }
+    }
     private void moveAlongPath(Image actor, Array<Vector2> path) {
         // Create a single sequence of move actions for smooth, concurrent movement
         SequenceAction seq = Actions.sequence();
@@ -223,6 +369,7 @@ public class MainScreen implements Screen {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
+        updateGameState(delta);
         // Update camera
         camera.update();
 
@@ -231,22 +378,36 @@ public class MainScreen implements Screen {
             renderer.setView(camera);
             renderer.render();
         }
-
+        if (gameState == GameState.PLAYING) {
+            chef.update(delta);
+            stationManager.update(delta);
+        }
         // Cập nhật chef và stationManager
         chef.update(delta);
         stationManager.update(delta);
-
+        batch.setProjectionMatrix(camera.combined);
         batch.begin();
         chef.render(batch);
         batch.end();
-        batch.setProjectionMatrix(camera.combined);
+        shapeRenderer.setProjectionMatrix(camera.combined);
         stationManager.render(batch, game.font, shapeRenderer);
+        stationManager.activateCustomer1Station();
+        stationManager.activateCustomer2Station();
         stationManager.activateBreadStation();
         stationManager.activateCoffeeStation();
         stage.act(delta);
         stage.draw();
-    }
+        if (gameState == GameState.PLAYING || gameState == GameState.READY) {
+            stationManager.render(batch, game.font, shapeRenderer);
+        }
 
+        // Render UI
+        renderUI();
+    }
+    public WordBubble findBubbleStartingWith(char c) {
+        // Tìm từ đầu tiên phù hợp
+        return stationManager.findBubbleStartingWith(c);
+    }
     public WordBubble processTypedCharacter(char c) {
         return stationManager.processTypedCharacter(c);
     }
