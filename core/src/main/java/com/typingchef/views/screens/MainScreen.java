@@ -8,17 +8,15 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.maps.MapLayer;
 import com.badlogic.gdx.maps.MapObject;
-import com.badlogic.gdx.maps.MapObjects;
 import com.badlogic.gdx.maps.objects.PolylineMapObject;
 import com.badlogic.gdx.math.Interpolation;
-import com.badlogic.gdx.math.Polyline;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.actions.Actions;
+import com.badlogic.gdx.scenes.scene2d.actions.RunnableAction;
 import com.badlogic.gdx.scenes.scene2d.actions.SequenceAction;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ObjectMap;
-import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -34,20 +32,24 @@ import com.typingchef.models.entities.ActionType;
 import com.typingchef.models.entities.GameState;
 import com.typingchef.models.entities.Path;
 import com.typingchef.models.systems.StationManager;
-import com.typingchef.views.animations.AnimationManager;
+import com.typingchef.views.animations.AnimatedCharacter;
 import com.typingchef.views.components.WordBubble;
 import com.typingchef.models.entities.Character;
 
 // Thêm vào đầu lớp MainScreen
 
 public class MainScreen implements Screen {
+    private AnimatedCharacter adam;
+    private AnimatedCharacter alice;
+
     private Main game;
     private TiledMap map;
     private OrthographicCamera camera;
+    private Viewport viewport;
+
     private TiledMapRenderer renderer;
     private SpriteBatch batch;
     private Stage stage;
-    private AnimationManager animation;
 
     private Character chef;
     private Texture chefTexture;
@@ -55,7 +57,7 @@ public class MainScreen implements Screen {
     private StationManager stationManager;
     private TypingController typingController;
     private ShapeRenderer shapeRenderer;
-    private Viewport viewport;
+
     // Thêm các biến mới
     public GameState gameState = GameState.READY;
     private int score = 0;
@@ -147,40 +149,38 @@ public class MainScreen implements Screen {
     }
     private void loadActorsAndPaths() {
         float tileSize = 16f;
-        // Load textures
-        bobTexture = new Texture("bob_run.png");
-        aliceTexture = new Texture("alice_run.png");
+        // Tạo nhân vật Adam với 6 frame cho mỗi hướng
+        adam = new AnimatedCharacter("character_actions/Adam_run_16x16.png", 16, 32, 6, 0.1f);
+        adam.loadSitAnimation("character_actions/Adam_sit3_16x16.png");
+        stage.addActor(adam);
 
-        // Create Image actors
-        bobActor = new Image(bobTexture);
-        bobActor.setSize(tileSize, tileSize);
-        aliceActor = new Image(aliceTexture);
-        aliceActor.setSize(tileSize, tileSize);
-        stage.addActor(bobActor);
-        stage.addActor(aliceActor);
+        alice = new AnimatedCharacter("character_actions/Amelia_run_16x16.png", 16, 32, 6, 0.1f);
+        alice.loadSitAnimation("character_actions/Amelia_sit3_16x16.png");
+        stage.addActor(alice);
 
         // Load all paths from Object Layer "path"
         allPaths = loadAllPaths("path");
 
-        // Initialize Bob on "ghegancua"
+        // Di chuyển Adam
         if (allPaths.containsKey("ghegancua")) {
-            Array<Vector2> bobPath = allPaths.get("ghegancua");
-            if (bobPath.size > 0) {
-                Vector2 start = bobPath.first();
-                bobActor.setPosition(start.x, start.y);
-                moveAlongPath(bobActor, bobPath);
+            Array<Vector2> adamPath = allPaths.get("ghegancua");
+            if (adamPath.size > 0) {
+                Vector2 start = adamPath.first();
+                adam.setPosition(start.x, start.y);
+                moveAlongPath1(adam, adamPath);
             }
         }
-        // Initialize Alice on "ghexacua"
+
         if (allPaths.containsKey("ghexacua")) {
             Array<Vector2> alicePath = allPaths.get("ghexacua");
             if (alicePath.size > 0) {
                 Vector2 start = alicePath.first();
-                aliceActor.setPosition(start.x, start.y);
-                moveAlongPath(aliceActor, alicePath);
+                alice.setPosition(start.x, start.y);
+                moveAlongPath1(alice, alicePath);
             }
         }
     }
+
     private ObjectMap<String, Array<Vector2>> loadAllPaths(String layerName) {
         ObjectMap<String, Array<Vector2>> paths = new ObjectMap<>();
         MapLayer layer = map.getLayers().get(layerName);
@@ -199,6 +199,46 @@ public class MainScreen implements Screen {
         }
         return paths;
     }
+
+    private void moveAlongPath1(final AnimatedCharacter character, Array<Vector2> path) {
+        try {
+            SequenceAction seq = Actions.sequence();
+            float speed = baseSpeed;
+
+            for (int i = 1; i < path.size; i++) {
+                final Vector2 from = path.get(i - 1);
+                final Vector2 to = path.get(i);
+                float dist = from.dst(to);
+                float duration = dist / speed;
+
+                RunnableAction updateDirection = Actions.run(() -> {
+                    character.updateDirection(from, to);
+                });
+
+                seq.addAction(updateDirection);
+                seq.addAction(Actions.moveTo(to.x, to.y, duration, Interpolation.linear));
+
+                if (i == path.size - 1) {
+                    final int finalI = i;
+                    seq.addAction(Actions.run(() -> {
+                        Vector2 lastMove = new Vector2(path.get(finalI).x - path.get(finalI - 1).x,
+                            path.get(finalI).y - path.get(finalI - 1).y);
+
+                        character.setSitDirection(lastMove.x >= 0 ?
+                            AnimatedCharacter.SitDirection.RIGHT :
+                            AnimatedCharacter.SitDirection.LEFT);
+                        character.sit();
+                    }));
+                }
+            }
+
+            character.addAction(seq);
+        } catch (Exception e) {
+            System.err.println("Error in moveAlongPath1(): " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     private void updateGameState(float delta) {
         switch (gameState) {
             case READY:
@@ -318,21 +358,7 @@ public class MainScreen implements Screen {
             gameState = GameState.READY;
         }
     }
-    private void moveAlongPath(Image actor, Array<Vector2> path) {
-        // Create a single sequence of move actions for smooth, concurrent movement
-        SequenceAction seq = Actions.sequence();
-        float speed = baseSpeed; // pixels per second
-        for (int i = 1; i < path.size; i++) {
-            Vector2 from = path.get(i - 1);
-            Vector2 to = path.get(i);
-            float dist = from.dst(to);
-            float duration = dist / speed;
-            // Use linear interpolation for consistent speed
-            seq.addAction(Actions.moveTo(to.x, to.y, duration, Interpolation.linear));
-        }
-        // Add the combined sequence to actor once
-        actor.addAction(seq);
-    }
+
     public void moveChefTo(float x, float y) {
         float viewportWidth = viewport.getWorldWidth();
         float viewportHeight = viewport.getWorldHeight();
@@ -352,15 +378,9 @@ public class MainScreen implements Screen {
         moveChefTo(targetX, targetY);
     }
 
-    public void addAnimation() {
-        animation = new AnimationManager();
-        animation.setPosition(Gdx.graphics.getWidth() / 2, Gdx.graphics.getHeight() / 2);
-        stage.addActor(animation);
-    }
-
     @Override
     public void show() {
-        addAnimation();
+        //addAnimation();
     }
 
     @Override
@@ -368,6 +388,9 @@ public class MainScreen implements Screen {
         // Clear screen
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+        // Update animations
+        adam.update(delta);
+        alice.update(delta);
 
         updateGameState(delta);
         // Update camera
@@ -414,9 +437,6 @@ public class MainScreen implements Screen {
 
     @Override
     public void resize(int width, int height) {
-        stage.getViewport().update(width, height, true);
-        camera.position.set(width / 2f, height / 2f, 0);
-        camera.update();
         viewport.update(width, height);
     }
 
