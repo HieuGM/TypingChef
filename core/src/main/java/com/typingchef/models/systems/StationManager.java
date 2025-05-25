@@ -16,19 +16,19 @@ public class StationManager {
     private boolean customer1StationActive = false;
     private boolean customer2StationActive = false;
 
-    private float breadStationX = 150;
-    private float breadStationY = 100;
-    private float coffeeStationX = 600;
-    private float coffeeStationY = 100;
+    private float breadStationX = 50;
+    private float breadStationY = 50;
+    private float coffeeStationX = 50;
+    private float coffeeStationY = 150;
     private float customer1StationX = 300;
-    private float customer1StationY = 200;
-    private float customer2StationX = 500;
-    private float customer2StationY = 200;
+    private float customer1StationY = 50;
+    private float customer2StationX = 300;
+    private float customer2StationY = 150;
 
     private String[] breadWords = {"bread", "toast", "baguette", "roll", "croissant"};
-    private String[] coffeeWords = {"coffee", "espresso", "latte", "mocha", "cappuccino"};
-    private String[] customer1Words = {"order", "please", "serve", "menu", "water"};
-    private String[] customer2Words = {"check", "bill", "thanks", "delicious", "tasty"};
+    private String[] coffeeWords = {"fee", "espresso", "latte", "mocha", "mock"};
+    private String[] customer1Words = {"order", "please", "serve", "save", "water"};
+    private String[] customer2Words = {"check", "chill", "thanks", "delicious", "tasty"};
 
     public StationManager() {
         activeBubbles = new ArrayList<>();

@@ -368,7 +368,7 @@ public class MainScreen implements Screen {
         float worldY = y * (viewportHeight / Gdx.graphics.getHeight());
         Path path = new Path(ActionType.PREPARE_BREAD);
         path.addPoint(chef.getX(), chef.getY());
-        path.addPoint(worldX, worldY);
+        path.addPoint(x, y);
         chef.startMovingOnPath(path);
     }
 
